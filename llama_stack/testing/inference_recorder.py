@@ -211,7 +211,7 @@ def _model_identifiers_digest(endpoint: str, response: dict[str, Any]) -> str:
         return sorted(set(idents))
 
     identifiers = _extract_model_identifiers()
-    return hashlib.sha1(("|".join(identifiers)).encode("utf-8")).hexdigest()[:8]
+    return hashlib.sha256(("|".join(identifiers)).encode("utf-8")).hexdigest()[:8]
 
 
 def _combine_model_list_responses(endpoint: str, records: list[dict[str, Any]]) -> dict[str, Any] | None:
