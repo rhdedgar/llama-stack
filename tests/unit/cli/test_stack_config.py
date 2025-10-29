@@ -13,6 +13,7 @@ from llama_stack.core.configure import (
     LLAMA_STACK_RUN_CONFIG_VERSION,
     parse_and_maybe_upgrade_config,
 )
+from llama_stack.core.utils.config_dirs import EXTERNAL_PROVIDERS_DIR
 
 
 @pytest.fixture
@@ -206,3 +207,26 @@ def test_parse_and_maybe_upgrade_config_invalid(invalid_config):
 def test_parse_and_maybe_upgrade_config_image_name_int(config_with_image_name_int):
     result = parse_and_maybe_upgrade_config(config_with_image_name_int)
     assert isinstance(result.image_name, str)
+
+
+def test_parse_and_maybe_upgrade_config_sets_external_providers_dir(up_to_date_config):
+    """Test that external_providers_dir is set to default even for up-to-date configs."""
+    # Ensure the config doesn't have external_providers_dir set
+    assert "external_providers_dir" not in up_to_date_config
+
+    result = parse_and_maybe_upgrade_config(up_to_date_config)
+
+    # Verify external_providers_dir was set to the default value
+    assert result.external_providers_dir is not None
+    assert result.external_providers_dir == EXTERNAL_PROVIDERS_DIR
+
+
+def test_parse_and_maybe_upgrade_config_preserves_custom_external_providers_dir(up_to_date_config):
+    """Test that custom external_providers_dir values are preserved."""
+    custom_dir = "/custom/providers/dir"
+    up_to_date_config["external_providers_dir"] = custom_dir
+
+    result = parse_and_maybe_upgrade_config(up_to_date_config)
+
+    # Verify the custom value was preserved
+    assert str(result.external_providers_dir) == custom_dir
