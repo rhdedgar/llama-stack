@@ -16,10 +16,6 @@
 #   --build-arg DISTRO_NAME=starter \
 #   --tag docker.io/llamastack/distribution-starter:latest .
 
-# TARGETPLATFORM and BUILDPLATFORM are automatically set by Docker buildx/Podman buildx for multi-arch builds
-# For regular docker builds, these will be empty/undefined
-ARG TARGETPLATFORM=""
-ARG BUILDPLATFORM=""
 ARG BASE_IMAGE=python:3.12-slim
 # Buildx automatically handles platform selection for the base image when --platform is specified
 FROM ${BASE_IMAGE}
