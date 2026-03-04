@@ -20,6 +20,7 @@ from llama_stack.core.datatypes import AccessRule
 from llama_stack.core.id_generation import generate_object_id
 from llama_stack.core.storage.sqlstore.authorized_sqlstore import AuthorizedSqlStore
 from llama_stack.core.storage.sqlstore.sqlstore import sqlstore_impl
+from llama_stack.providers.utils.files.sanitize import sanitize_content_disposition_filename
 from llama_stack_api import (
     ExpiresAfter,
     Files,
@@ -331,5 +332,7 @@ class S3FilesImpl(Files):
         return Response(
             content=content,
             media_type="application/octet-stream",
-            headers={"Content-Disposition": f'attachment; filename="{row["filename"]}"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{sanitize_content_disposition_filename(row["filename"])}"'
+            },
         )
