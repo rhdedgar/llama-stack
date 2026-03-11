@@ -10,7 +10,11 @@ _SAFE_FILENAME_PATTERN = re.compile(r"[^a-zA-Z0-9._-]")
 
 
 def sanitize_content_disposition_filename(filename: str) -> str:
-    """Sanitize *filename* for safe inclusion in a ``Content-Disposition`` header.
+    """Sanitize *filename* for safe storage and inclusion in HTTP headers.
+
+    Applied at **upload time** so the clean value is persisted in the database
+    and returned in API responses, as well as at **download time** in the
+    ``Content-Disposition`` header.
 
     The function strips null bytes and path separators, collapses ``..``
     sequences, prevents hidden-file names (leading dot), and replaces any

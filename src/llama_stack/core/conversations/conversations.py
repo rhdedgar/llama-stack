@@ -188,7 +188,7 @@ class ConversationServiceImpl(Conversations):
             raise InvalidParameterError(
                 "conversation_id",
                 conversation_id,
-                "Conversation ID must match format 'conv_' followed by 48 hex characters.",
+                "Conversation ID must match format 'conv_' followed by 48 lowercase hex characters.",
             )
 
     def _get_or_generate_item_id(self, item: ConversationItem, item_dict: dict) -> str:

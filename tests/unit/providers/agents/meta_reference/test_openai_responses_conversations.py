@@ -224,7 +224,9 @@ class TestIntegrationWorkflow:
 
     async def test_create_response_with_invalid_conversation_id(self, responses_impl_with_conversations):
         """Test creating a response with an invalid conversation ID."""
-        with pytest.raises(InvalidParameterError, match="Must match format 'conv_' followed by 48 hex characters"):
+        with pytest.raises(
+            InvalidParameterError, match="Must match format 'conv_' followed by 48 lowercase hex characters"
+        ):
             await responses_impl_with_conversations.create_openai_response(
                 input="Hello", model="test-model", conversation="invalid_id", stream=False
             )

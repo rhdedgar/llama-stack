@@ -219,7 +219,7 @@ class S3FilesImpl(Files):
 
         file_id = generate_object_id("file", lambda: f"file-{uuid.uuid4().hex}")
 
-        filename = getattr(file, "filename", None) or "uploaded_file"
+        filename = sanitize_content_disposition_filename(getattr(file, "filename", None) or "uploaded_file")
 
         created_at = self._now()
 
