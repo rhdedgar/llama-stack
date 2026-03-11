@@ -622,7 +622,7 @@ class OpenAIResponsesImpl:
                 raise InvalidParameterError(
                     "conversation",
                     conversation,
-                    "Must match format 'conv_' followed by 48 hex characters.",
+                    "Must match format 'conv_' followed by 48 lowercase hex characters.",
                 )
 
         if max_tool_calls is not None and max_tool_calls < 1:

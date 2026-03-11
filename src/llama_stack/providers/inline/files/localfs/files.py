@@ -15,8 +15,10 @@ Security boundaries
   sequences, null bytes, and any non-hex characters.
 * **Path containment** -- ``_validate_path_containment`` resolves symlinks and
   ``..`` components, then verifies the result stays inside ``storage_dir``.
-* **Filename sanitization** -- ``Content-Disposition`` filenames are stripped of
-  path separators, traversal sequences, null bytes, and non-ASCII-safe chars.
+* **Filename sanitization** -- User-supplied filenames are sanitized at upload
+  time before being stored in the database or returned in API responses.  The
+  same sanitizer is applied again in the ``Content-Disposition`` header on
+  download as a belt-and-suspenders measure.
 """
 
 import re
@@ -156,6 +158,7 @@ class LocalfsFilesImpl(Files):
 
         file_id = self._generate_file_id()
         file_path = self._get_file_path(file_id)
+        sanitized_name = sanitize_content_disposition_filename(file.filename or "uploaded_file")
 
         content = await file.read()
         file_size = len(content)
@@ -170,7 +173,7 @@ class LocalfsFilesImpl(Files):
             "openai_files",
             {
                 "id": file_id,
-                "filename": file.filename or "uploaded_file",
+                "filename": sanitized_name,
                 "purpose": purpose.value,
                 "bytes": file_size,
                 "created_at": created_at,
@@ -181,7 +184,7 @@ class LocalfsFilesImpl(Files):
 
         return OpenAIFileObject(
             id=file_id,
-            filename=file.filename or "uploaded_file",
+            filename=sanitized_name,
             purpose=purpose,
             bytes=file_size,
             created_at=created_at,

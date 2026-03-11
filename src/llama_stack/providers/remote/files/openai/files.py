@@ -143,7 +143,7 @@ class OpenAIFilesImpl(Files):
         purpose = request.purpose
         expires_after = request.expires_after
 
-        filename = getattr(file, "filename", None) or "uploaded_file"
+        filename = sanitize_content_disposition_filename(getattr(file, "filename", None) or "uploaded_file")
         content = await file.read()
         file_size = len(content)
 

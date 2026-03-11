@@ -227,10 +227,23 @@ class TestContentDispositionSanitization:
         result = sanitize_content_disposition_filename("dir/file.txt")
         assert "/" not in result
 
+    async def test_upload_sanitizes_stored_filename(self, files_provider):
+        """The returned OpenAIFileObject should already contain the sanitized name."""
+        malicious_name = "../../etc/passwd"
+        upload = MockUploadFile(b"test content", malicious_name)
+
+        uploaded = await files_provider.openai_upload_file(
+            request=UploadFileRequest(purpose=OpenAIFilePurpose.ASSISTANTS),
+            file=upload,
+        )
+
+        assert ".." not in uploaded.filename
+        assert "/" not in uploaded.filename
+
     async def test_content_disposition_header_uses_sanitized_name(self, files_provider):
-        """End-to-end: upload a file with a nasty name, retrieve it, check the header."""
-        nasty_name = "../../etc/passwd"
-        upload = MockUploadFile(b"test content", nasty_name)
+        """End-to-end: upload a file with a malicious name, retrieve it, check the header."""
+        malicious_name = "../../etc/passwd"
+        upload = MockUploadFile(b"test content", malicious_name)
 
         uploaded = await files_provider.openai_upload_file(
             request=UploadFileRequest(purpose=OpenAIFilePurpose.ASSISTANTS),
