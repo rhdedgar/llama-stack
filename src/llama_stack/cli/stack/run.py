@@ -16,7 +16,7 @@ import yaml
 from termcolor import cprint
 
 from llama_stack.cli.subcommand import Subcommand
-from llama_stack.core.datatypes import StackConfig
+from llama_stack.core.datatypes import SecurityMode, StackConfig
 from llama_stack.core.stack import cast_distro_name_to_string, replace_env_vars, run_config_from_dynamic_config_spec
 from llama_stack.core.utils.config_dirs import DISTRIBS_BASE_DIR
 from llama_stack.core.utils.config_resolution import resolve_config_or_distro
@@ -63,6 +63,19 @@ class StackRun(Subcommand):
             type=str,
             default=None,
             help="Run a stack with only a list of providers. This list is formatted like: api1=provider1,api1=provider2,api2=provider3. Where there can be multiple providers per API.",
+        )
+        self.parser.add_argument(
+            "--security-mode",
+            type=str,
+            choices=["development", "production"],
+            default=None,
+            help="Override the security mode from config. 'production' requires TLS certificates.",
+        )
+        self.parser.add_argument(
+            "--insecure",
+            action="store_true",
+            default=False,
+            help="Force development security mode (allows HTTP without TLS). Overrides --security-mode and config.",
         )
 
     def _run_stack_run_cmd(self, args: argparse.Namespace) -> None:
@@ -133,6 +146,21 @@ class StackRun(Subcommand):
                 logger_config = None
             config = StackConfig(**cast_distro_name_to_string(replace_env_vars(config_contents)))
 
+        # Apply CLI security mode overrides before validation
+        if args.insecure:
+            config.server.security_mode = SecurityMode.DEVELOPMENT
+        elif args.security_mode:
+            config.server.security_mode = SecurityMode(args.security_mode)
+
+        # Re-validate after overrides (production mode checks certs)
+        if config.server.security_mode == SecurityMode.PRODUCTION:
+            if not config.server.tls_certfile or not config.server.tls_keyfile:
+                logger.error(
+                    "Production security mode requires TLS certificates. "
+                    "Set tls_certfile and tls_keyfile in server config, or use --insecure to run without TLS."
+                )
+                raise SystemExit(1)
+
         port = args.port or config.server.port
         host = config.server.host or ["::", "0.0.0.0"]
 
@@ -158,11 +186,17 @@ class StackRun(Subcommand):
                 uvicorn_config["ssl_ca_certs"] = config.server.tls_cafile
                 uvicorn_config["ssl_cert_reqs"] = ssl.CERT_REQUIRED
 
+            if config.server.tls_config and config.server.tls_config.ciphers:
+                uvicorn_config["ssl_ciphers"] = ":".join(config.server.tls_config.ciphers)
+
             logger.info(
                 f"HTTPS enabled with certificates:\n  Key: {keyfile}\n  Cert: {certfile}\n  CA: {config.server.tls_cafile}"
             )
         else:
-            logger.info(f"HTTPS enabled with certificates:\n  Key: {keyfile}\n  Cert: {certfile}")
+            logger.warning(
+                "TLS is not enabled — server will transmit data in cleartext. "
+                "Set tls_certfile and tls_keyfile in server config to enable HTTPS."
+            )
 
         logger.info(f"Listening on {host}:{port}")
 

@@ -34,6 +34,7 @@ from pydantic import BaseModel
 from llama_stack.core.access_control.access_control import AccessDeniedError
 from llama_stack.core.datatypes import (
     AuthenticationRequiredError,
+    SecurityMode,
     StackConfig,
     process_cors_config,
 )
@@ -249,6 +250,26 @@ def create_dynamic_typed_route(func: Any, method: str, route: str) -> Callable:
     return route_handler
 
 
+class HSTSMiddleware:
+    """Adds Strict-Transport-Security header to all HTTPS responses."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+
+            async def send_with_hsts(message):
+                if message["type"] == "http.response.start":
+                    headers = list(message.get("headers", []))
+                    headers.append([b"strict-transport-security", b"max-age=31536000; includeSubDomains"])
+                    message["headers"] = headers
+                await send(message)
+
+            return await self.app(scope, receive, send_with_hsts)
+        return await self.app(scope, receive, send)
+
+
 class ClientVersionMiddleware:
     def __init__(self, app):
         self.app = app
@@ -357,12 +378,25 @@ def create_app() -> StackApp:
         config=config,
     )
 
+    # Add HSTS middleware when TLS is configured
+    if config.server.tls_certfile and config.server.tls_keyfile:
+        app.add_middleware(HSTSMiddleware)
+
     if not os.environ.get("LLAMA_STACK_DISABLE_VERSION_CHECK"):
         app.add_middleware(ClientVersionMiddleware)
 
     app.add_middleware(ProviderDataMiddleware)
 
     impls = app.stack.impls
+
+    # In production mode, reject verify_tls=False in auth config
+    if config.server.security_mode == SecurityMode.PRODUCTION and config.server.auth:
+        provider_config = config.server.auth.provider_config
+        if provider_config and hasattr(provider_config, "verify_tls") and not provider_config.verify_tls:
+            raise SystemExit(
+                "FATAL: Production security mode forbids verify_tls=False in auth provider config. "
+                "TLS verification must be enabled for production deployments."
+            )
 
     if config.server.auth:
         # Add route authorization middleware if route_policy is configured

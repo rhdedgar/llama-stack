@@ -702,6 +702,32 @@ class RegisteredResources(BaseModel):
     tool_groups: list[ToolGroupInput] = Field(default_factory=list)
 
 
+class SecurityMode(StrEnum):
+    DEVELOPMENT = "development"
+    PRODUCTION = "production"
+
+
+FIPS_APPROVED_CIPHERS = [
+    "ECDHE-ECDSA-AES128-GCM-SHA256",
+    "ECDHE-RSA-AES128-GCM-SHA256",
+    "ECDHE-ECDSA-AES256-GCM-SHA384",
+    "ECDHE-RSA-AES256-GCM-SHA384",
+    "DHE-RSA-AES128-GCM-SHA256",
+    "DHE-RSA-AES256-GCM-SHA384",
+]
+
+
+class ServerTLSConfig(BaseModel):
+    min_version: str = Field(
+        default="TLSv1.2",
+        description="Minimum TLS version (TLSv1.2 or TLSv1.3)",
+    )
+    ciphers: list[str] | None = Field(
+        default=None,
+        description="Allowed TLS 1.2 cipher suites (OpenSSL names). Defaults to FIPS-approved AES-GCM ciphers.",
+    )
+
+
 class ServerConfig(BaseModel):
     port: int = Field(
         default=8321,
@@ -743,6 +769,28 @@ class ServerConfig(BaseModel):
         default=1,
         description="Number of workers to use for the server",
     )
+    security_mode: SecurityMode = Field(
+        default=SecurityMode.DEVELOPMENT,
+        description="Security mode: 'development' (allows HTTP, warnings only) or 'production' (requires TLS with FIPS-approved ciphers)",
+    )
+    tls_config: ServerTLSConfig | None = Field(
+        default=None,
+        description="TLS configuration (cipher suites, min version). Auto-populated with FIPS defaults in production mode.",
+    )
+
+    @model_validator(mode="after")
+    def validate_security_mode(self) -> "ServerConfig":
+        if self.security_mode == SecurityMode.PRODUCTION:
+            if not self.tls_certfile or not self.tls_keyfile:
+                raise ValueError(
+                    "Production security mode requires TLS: set 'tls_certfile' and 'tls_keyfile' in server config, "
+                    "or use '--insecure' / security_mode='development' to run without TLS."
+                )
+            if self.tls_config is None:
+                self.tls_config = ServerTLSConfig(ciphers=FIPS_APPROVED_CIPHERS)
+            elif self.tls_config.ciphers is None:
+                self.tls_config.ciphers = FIPS_APPROVED_CIPHERS
+        return self
 
 
 class StackConfig(BaseModel):
