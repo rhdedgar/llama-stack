@@ -29,6 +29,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from ogx.core.access_control.access_control import AccessDeniedError
 from ogx.core.datatypes import (
     AuthenticationRequiredError,
+    SecurityMode,
     StackConfig,
     process_cors_config,
 )
@@ -155,6 +156,27 @@ async def _send_error_response(send: Send, status: int, message: str) -> None:
     await send({"type": "http.response.body", "body": error_msg})
 
 
+class HSTSMiddleware:
+    """Adds Strict-Transport-Security header to all HTTPS responses."""
+
+    def __init__(self, app: ASGIApp, max_age: int = 31536000) -> None:
+        self.app = app
+        self.hsts_value = f"max-age={max_age}; includeSubDomains".encode()
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> Any:
+        if scope["type"] == "http":
+
+            async def send_with_hsts(message: dict[str, Any]) -> None:
+                if message["type"] == "http.response.start":
+                    headers = list(message.get("headers", []))
+                    headers.append([b"strict-transport-security", self.hsts_value])
+                    message["headers"] = headers
+                await send(message)
+
+            return await self.app(scope, receive, send_with_hsts)
+        return await self.app(scope, receive, send)
+
+
 class ClientVersionMiddleware:
     """ASGI middleware that rejects requests from clients with incompatible major.minor versions."""
 
@@ -219,11 +241,35 @@ class ProviderDataMiddleware:
         return await self.app(scope, receive, send)
 
 
+def validate_auth_security(config: StackConfig) -> None:
+    """Validate auth provider TLS settings against the server's security mode.
+
+    Raises SystemExit in production mode if any auth provider has verify_tls=False.
+    Logs a warning in development mode.
+    """
+    if not config.server.auth:
+        return
+    provider_config = config.server.auth.provider_config
+    if not provider_config or not hasattr(provider_config, "verify_tls") or provider_config.verify_tls:
+        return
+
+    if config.server.security_mode == SecurityMode.PRODUCTION:
+        raise SystemExit(
+            "FATAL: Production security mode forbids verify_tls=False in auth provider config. "
+            "TLS verification must be enabled for production deployments."
+        )
+    logger.warning(
+        "TLS verification is disabled in auth provider config (verify_tls=False). "
+        "This is insecure and should only be used for local development or testing."
+    )
+
+
 def create_app() -> StackApp:
     """Create and configure the FastAPI application.
 
     This factory function reads configuration from environment variables:
     - OGX_CONFIG: Path to config file (required)
+    - OGX_SECURITY_MODE: Override security_mode before validation (optional, set by --insecure/--security-mode)
 
     Returns:
         Configured StackApp instance.
@@ -251,6 +297,11 @@ def create_app() -> StackApp:
         logger = get_logger(name=__name__, category="core::server", config=logger_config)
 
         config = replace_env_vars(config_contents)
+
+        security_mode_override = os.getenv("OGX_SECURITY_MODE")
+        if security_mode_override and isinstance(config, dict):
+            config.setdefault("server", {})["security_mode"] = security_mode_override
+
         config = StackConfig(**cast_distro_name_to_string(config))
 
     _log_run_config(run_config=config)
@@ -263,6 +314,10 @@ def create_app() -> StackApp:
         config=config,
     )
 
+    # Add HSTS middleware when TLS is configured and HSTS is not disabled
+    if config.server.tls_certfile and config.server.tls_keyfile and config.server.hsts_max_age > 0:
+        app.add_middleware(HSTSMiddleware, max_age=config.server.hsts_max_age)
+
     if not os.environ.get("OGX_DISABLE_VERSION_CHECK"):
         app.add_middleware(ClientVersionMiddleware)
 
@@ -270,6 +325,8 @@ def create_app() -> StackApp:
 
     impls = app.stack.impls
     assert impls is not None
+
+    validate_auth_security(config)
 
     if config.server.auth:
         # Add route authorization middleware if route_policy is configured
