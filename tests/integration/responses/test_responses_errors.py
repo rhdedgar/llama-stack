@@ -46,7 +46,7 @@ from typing import get_args
 
 import httpx
 import pytest
-from openai import APIError, APIStatusError, BadRequestError, NotFoundError
+from openai import APIError, BadRequestError, NotFoundError
 from openai.types.responses import ResponseError
 
 from ogx_api.common.errors import (
@@ -201,21 +201,6 @@ class TestResponsesAPIErrors:
         body = response.json()
         assert "error" in body
         assert "message" in body["error"]
-
-    def test_guardrails_without_safety_api_raises_service_unavailable(self, openai_client, ogx_client, text_model_id):
-        """Guardrails without Safety API configured returns 503."""
-        safety_providers = [p for p in ogx_client.providers.list() if p.api == "safety"]
-        if safety_providers:
-            pytest.skip("Server has Safety API enabled")
-
-        with pytest.raises(APIStatusError) as exc_info:
-            openai_client.responses.create(
-                model=text_model_id,
-                input="Hello",
-                extra_body={"guardrails": ["test-shield"]},
-            )
-        assert exc_info.value.status_code == 503
-        assert "safety" in str(exc_info.value).lower()
 
 
 class TestConversationsAPIErrors:

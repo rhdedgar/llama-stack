@@ -27,14 +27,12 @@ This provider handles:
 
 - **Agent turns**: Multi-step inference with tool calling loops. The agent calls the inference provider, executes any requested tools, feeds results back, and repeats until the model produces a final response.
 - **OpenAI Responses API**: Implements the `/v1/responses` endpoint, which provides a stateful, agentic interface compatible with OpenAI's Responses API. Supports built-in tools (web search, code interpreter, file search) and custom function tools.
-- **Safety integration**: Optionally runs input and output through safety shields before and after inference.
 
 ## Dependencies
 
 This provider depends on:
 
 - `Api.inference` -- for LLM calls
-- `Api.safety` -- for input/output safety checks
 - `Api.tool_runtime` -- for executing tool calls
 - `Api.vector_io` -- for file search / RAG
 - `Api.files` -- for file management

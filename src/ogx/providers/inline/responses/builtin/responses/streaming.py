@@ -15,7 +15,6 @@ from opentelemetry import trace
 
 from ogx.log import get_logger
 from ogx.providers.utils.inference.openai_compat import convert_tooldef_to_openai_tool
-from ogx.providers.utils.inference.prompt_adapter import interleaved_content_as_str
 from ogx.providers.utils.tools.mcp import list_mcp_tools
 from ogx_api import (
     AllowedToolsFilter,
@@ -102,7 +101,6 @@ from ogx_api import (
     ResponseItemInclude,
     ResponseStreamOptions,
     ResponseTruncation,
-    Safety,
     ToolDef,
     WebSearchToolTypes,
 )
@@ -117,7 +115,6 @@ from .utils import (
     convert_chat_choice_to_response_message,
     convert_mcp_tool_choice,
     is_function_tool_call,
-    run_guardrails,
     should_summarize_reasoning,
     summarize_reasoning,
 )
@@ -231,8 +228,6 @@ class StreamingResponseOrchestrator:
         max_infer_iters: int,
         tool_executor,  # Will be the tool execution logic from the main class
         instructions: str | None,
-        safety_api: Safety | None,
-        guardrail_ids: list[str] | None = None,
         connectors_api: Connectors | None = None,
         prompt: OpenAIResponsePrompt | None = None,
         prompt_cache_key: str | None = None,
@@ -258,9 +253,7 @@ class StreamingResponseOrchestrator:
         self.text = text
         self.max_infer_iters = max_infer_iters
         self.tool_executor = tool_executor
-        self.safety_api = safety_api
         self.connectors_api = connectors_api
-        self.guardrail_ids = guardrail_ids or []
         self.prompt = prompt
         self.prompt_cache_key = prompt_cache_key
         # System message that is inserted into the model's context
@@ -408,15 +401,6 @@ class StreamingResponseOrchestrator:
             response=self._snapshot_response("in_progress", output_messages),
             sequence_number=self.sequence_number,
         )
-
-        # Input safety validation - check messages before processing
-        if self.guardrail_ids:
-            combined_text = interleaved_content_as_str([msg.content for msg in self.ctx.messages])
-            input_violation_message = await run_guardrails(self.safety_api, combined_text, self.guardrail_ids)
-            if input_violation_message:
-                logger.info("Input guardrail violation", input_violation_message=input_violation_message)
-                yield await self._create_refusal_response(input_violation_message)
-                return
 
         # Only 'disabled' truncation is supported for now
         # TODO: Implement actual truncation logic when 'auto' mode is supported
@@ -1059,9 +1043,6 @@ class StreamingResponseOrchestrator:
             # Accumulate usage from chunks (typically in final chunk with stream_options)
             self._accumulate_chunk_usage(chunk)
 
-            # Track deltas for this specific chunk for guardrail validation
-            chunk_events: list[OpenAIResponseObjectStream] = []
-
             for chunk_choice in chunk.choices:
                 # Collect logprobs if present
                 chunk_logprobs = None
@@ -1113,11 +1094,7 @@ class StreamingResponseOrchestrator:
                         output_index=message_output_index,
                         sequence_number=self.sequence_number,
                     )
-                    # Buffer text delta events for guardrail check
-                    if self.guardrail_ids:
-                        chunk_events.append(text_delta_event)
-                    else:
-                        yield text_delta_event
+                    yield text_delta_event
 
                 # Collect content for final response
                 chat_response_content.append(chunk_choice.delta.content or "")
@@ -1135,11 +1112,7 @@ class StreamingResponseOrchestrator:
                         message_item_id=message_item_id,
                         message_output_index=message_output_index,
                     ):
-                        # Buffer reasoning events for guardrail check
-                        if self.guardrail_ids:
-                            chunk_events.append(event)
-                        else:
-                            yield event
+                        yield event
                     reasoning_part_emitted = True
                     reasoning_text_accumulated.append(reasoning_content)
 
@@ -1231,22 +1204,6 @@ class StreamingResponseOrchestrator:
                                 response_tool_call.function.arguments = (
                                     response_tool_call.function.arguments or ""
                                 ) + tool_call.function.arguments
-
-            # Output Safety Validation for this chunk
-            if self.guardrail_ids:
-                # Check guardrails on accumulated text so far
-                accumulated_text = "".join(chat_response_content)
-                violation_message = await run_guardrails(self.safety_api, accumulated_text, self.guardrail_ids)
-                if violation_message:
-                    logger.info("Output guardrail violation", violation_message=violation_message)
-                    chunk_events.clear()
-                    yield await self._create_refusal_response(violation_message)
-                    self.violation_detected = True
-                    return
-                else:
-                    # No violation detected, emit all content events for this chunk
-                    for event in chunk_events:
-                        yield event
 
         # Emit arguments.done events for completed tool calls (differentiate between MCP and function calls)
         for tool_call_index in sorted(chat_response_tool_calls.keys()):

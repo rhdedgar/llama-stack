@@ -38,8 +38,8 @@ class TestArguments:
         assert args.providers is None
 
     def test_providers_accepts_multiple_pairs(self, stack_run: StackRun):
-        args = stack_run.parser.parse_args(["--providers", "inference=fireworks,safety=llama-guard"])
-        assert args.providers == "inference=fireworks,safety=llama-guard"
+        args = stack_run.parser.parse_args(["--providers", "inference=fireworks,vector_io=faiss"])
+        assert args.providers == "inference=fireworks,vector_io=faiss"
 
 
 class TestDelegation:

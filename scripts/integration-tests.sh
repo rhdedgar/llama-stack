@@ -567,7 +567,7 @@ fi
 
 # Run tests
 echo "=== Running Integration Tests ==="
-EXCLUDE_TESTS="builtin_tool or safety_with_image or code_interpreter or test_rag"
+EXCLUDE_TESTS="builtin_tool or code_interpreter or test_rag"
 
 PYTEST_PATTERN="not( $EXCLUDE_TESTS )"
 if [[ -n "$TEST_PATTERN" ]]; then

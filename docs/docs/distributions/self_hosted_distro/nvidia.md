@@ -11,7 +11,6 @@ The `ogx/distribution-nvidia` distribution consists of the following provider co
 | files | `inline::localfs` |
 | inference | `remote::nvidia` |
 | responses | `inline::builtin` |
-| safety | `remote::nvidia` |
 | tool_runtime | `inline::file-search` |
 | vector_io | `inline::faiss` |
 
@@ -23,13 +22,7 @@ The following environment variables can be configured:
 
 - `NVIDIA_APPEND_API_VERSION`: Whether to append the API version to the base_url (default: `True`)
 
-- `GUARDRAILS_SERVICE_URL`: URL for the NeMo Guardrails Service (default: `http://0.0.0.0:7331`)
-
-- `NVIDIA_GUARDRAILS_CONFIG_ID`: NVIDIA Guardrail Configuration ID (default: `self-check`)
-
 - `INFERENCE_MODEL`: Inference model (default: `Llama3.1-8B-Instruct`)
-
-- `SAFETY_MODEL`: Name of the model to use for safety (default: `meta/llama-3.1-8b-instruct`)
 
 ## Prerequisites
 
@@ -159,8 +152,6 @@ docker run \
 Available run configurations for this distribution:
 
 - `config.yaml`
-
-- `run-with-safety.yaml`
 
 ### Via venv
 

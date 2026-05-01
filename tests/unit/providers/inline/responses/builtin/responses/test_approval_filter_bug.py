@@ -44,7 +44,6 @@ def _build_orchestrator(mcp_tool_to_server: dict[str, OpenAIResponseInputToolMCP
         max_infer_iters=1,
         tool_executor=MagicMock(),
         instructions=None,
-        safety_api=None,
     )
     return orchestrator
 

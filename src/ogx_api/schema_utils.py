@@ -25,19 +25,19 @@ class ExtraBodyField[T]:
             self,
             input: str,
             model: str,
-            shields: Annotated[
-                list[str] | None, ExtraBodyField("List of shields to apply")
+            custom_field: Annotated[
+                str | None, ExtraBodyField("A custom extension field")
             ] = None,
         ) -> ResponseObject:
-            # shields is available here with proper typing
-            if shields:
-                print(f"Using shields: {shields}")
+            # custom_field is available here with proper typing
+            if custom_field:
+                print(f"Custom field: {custom_field}")
         ```
 
         Client usage:
         ```python
         client.responses.create(
-            input="hello", model="llama-3", extra_body={"shields": ["shield-1"]}
+            input="hello", model="llama-3", extra_body={"custom_field": "value"}
         )
         ```
     """

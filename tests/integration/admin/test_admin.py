@@ -52,7 +52,7 @@ class TestAdmin:
         assert routes is not None
 
         # When filtering for deprecated, we should get deprecated routes
-        # Verify we get some deprecated routes (e.g., /toolgroups, /shields, /models, etc.)
+        # Verify we get some deprecated routes (e.g., /toolgroups, /models, etc.)
         assert len(routes) > 0, "Deprecated filter should return some deprecated routes"
 
     def test_list_routes_filter_by_v1(self, ogx_client: OGXAsLibraryClient | LlamaStackClient):

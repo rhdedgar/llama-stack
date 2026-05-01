@@ -4,7 +4,6 @@
 # This source code is licensed under the terms described in the LICENSE file in
 # the root directory of this source tree.
 
-import asyncio
 import base64
 import mimetypes
 import re
@@ -60,11 +59,8 @@ from ogx_api import (
     OpenAISystemMessageParam,
     OpenAIToolMessageParam,
     OpenAIUserMessageParam,
-    ResponseGuardrailSpec,
     RetrieveFileContentRequest,
     RetrieveFileRequest,
-    RunModerationRequest,
-    Safety,
 )
 
 
@@ -546,70 +542,6 @@ def is_function_tool_call(
         if t.type == "function" and t.name == tool_call.function.name:
             return True
     return False
-
-
-async def run_guardrails(safety_api: Safety | None, messages: str, guardrail_ids: list[str]) -> str | None:
-    """Run guardrails against messages and return violation message if blocked."""
-    if not messages:
-        return None
-
-    # If safety API is not available, skip guardrails
-    if safety_api is None:
-        return None
-
-    # Look up shields to get their provider_resource_id (actual model ID)
-    model_ids = []
-    # TODO: list_shields not in Safety interface but available at runtime via API routing
-    shields_list = await safety_api.routing_table.list_shields()  # type: ignore[attr-defined]
-
-    for guardrail_id in guardrail_ids:
-        matching_shields = [shield for shield in shields_list.data if shield.identifier == guardrail_id]
-        if matching_shields:
-            model_id = matching_shields[0].provider_resource_id
-            model_ids.append(model_id)
-        else:
-            raise ValueError(f"No shield found with identifier '{guardrail_id}'")
-
-    guardrail_tasks = [
-        safety_api.run_moderation(RunModerationRequest(input=messages, model=model_id)) for model_id in model_ids
-    ]
-    responses = await asyncio.gather(*guardrail_tasks)
-
-    for response in responses:
-        for result in response.results:
-            if result.flagged:
-                message = result.user_message or "Content blocked by safety guardrails"
-                flagged_categories = (
-                    [cat for cat, flagged in result.categories.items() if flagged] if result.categories else []
-                )
-                violation_type = result.metadata.get("violation_type", []) if result.metadata else []
-
-                if flagged_categories:
-                    message += f" (flagged for: {', '.join(flagged_categories)})"
-                if violation_type:
-                    message += f" (violation type: {', '.join(violation_type)})"
-
-                return message
-
-    # No violations found
-    return None
-
-
-def extract_guardrail_ids(guardrails: list | None) -> list[str]:
-    """Extract guardrail IDs from guardrails parameter, handling both string IDs and ResponseGuardrailSpec objects."""
-    if not guardrails:
-        return []
-
-    guardrail_ids = []
-    for guardrail in guardrails:
-        if isinstance(guardrail, str):
-            guardrail_ids.append(guardrail)
-        elif isinstance(guardrail, ResponseGuardrailSpec):
-            guardrail_ids.append(guardrail.type)
-        else:
-            raise ValueError(f"Unknown guardrail format: {guardrail}, expected str or ResponseGuardrailSpec")
-
-    return guardrail_ids
 
 
 def convert_mcp_tool_choice(
