@@ -126,6 +126,8 @@ tracer = trace.get_tracer(__name__)
 # Anything else is either a registered function tool (client-side) or a hallucinated name.
 _SERVER_SIDE_BUILTIN_TOOL_NAMES = frozenset({"web_search", "knowledge_search", "file_search"})
 
+_GUARDRAIL_BATCH_CHARS = 200
+
 # Maps OpenAI Chat Completions error codes to Responses API error codes
 _RESPONSES_API_ERROR_CODES = {
     "invalid_base64": "invalid_base64_image",
@@ -297,6 +299,7 @@ class StreamingResponseOrchestrator:
         self.accumulated_usage: OpenAIResponseUsage | None = None
         # Track if we've sent a refusal response
         self.violation_detected = False
+        self._guardrail_model_ids: list[str] = []
         # Track total calls made to built-in tools
         self.accumulated_builtin_tool_calls = 0
         # Track total output tokens generated across inference calls
@@ -1097,7 +1100,8 @@ class StreamingResponseOrchestrator:
                     yield text_delta_event
 
                 # Collect content for final response
-                chat_response_content.append(chunk_choice.delta.content or "")
+                content_delta = chunk_choice.delta.content or ""
+                chat_response_content.append(content_delta)
                 if chunk_choice.finish_reason:
                     chunk_finish_reason = chunk_choice.finish_reason
 

@@ -20,7 +20,7 @@ from ogx.core.storage.kvstore.config import PostgresKVStoreConfig
 from ogx.core.storage.sqlstore.sqlstore import PostgresSqlStoreConfig
 from ogx.core.utils.dynamic import instantiate_class_type
 from ogx.distributions.template import DistributionTemplate, RunConfigSettings
-from ogx.providers.inline.file_processor.pypdf.config import PyPDFFileProcessorConfig
+from ogx.providers.inline.file_processor.auto.config import AutoFileProcessorConfig
 from ogx.providers.inline.files.localfs.config import LocalfsFilesImplConfig
 from ogx.providers.inline.inference.sentence_transformers import (
     SentenceTransformersInferenceConfig,
@@ -146,7 +146,7 @@ def get_distribution_template(name: str = "starter") -> DistributionTemplate:
             BuildProvider(provider_type="remote::infinispan"),
         ],
         "files": [BuildProvider(provider_type="inline::localfs")],
-        "file_processors": [BuildProvider(provider_type="inline::pypdf")],
+        "file_processors": [BuildProvider(provider_type="inline::auto")],
         "interactions": [BuildProvider(provider_type="inline::builtin")],
         "messages": [BuildProvider(provider_type="inline::builtin")],
         "responses": [BuildProvider(provider_type="inline::builtin")],
@@ -248,9 +248,9 @@ def get_distribution_template(name: str = "starter") -> DistributionTemplate:
         "files": [files_provider],
         "file_processors": [
             Provider(
-                provider_id="pypdf",
-                provider_type="inline::pypdf",
-                config=PyPDFFileProcessorConfig.sample_run_config(),
+                provider_id="auto",
+                provider_type="inline::auto",
+                config=AutoFileProcessorConfig.sample_run_config(),
             ),
         ],
         "tool_runtime": [

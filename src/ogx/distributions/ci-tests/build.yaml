@@ -31,7 +31,7 @@ distribution_spec:
     files:
     - provider_type: inline::localfs
     file_processors:
-    - provider_type: inline::pypdf
+    - provider_type: inline::auto
     responses:
     - provider_type: inline::builtin
     tool_runtime:
