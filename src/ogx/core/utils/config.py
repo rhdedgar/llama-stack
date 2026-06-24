@@ -5,16 +5,19 @@
 # the root directory of this source tree.
 
 from enum import Enum
+from pathlib import PurePath
 from typing import Any
 
 from pydantic import SecretStr
+
+_YAML_SAFE_SCALARS = (str, int, float, bool, type(None))
 
 
 def reveal_secret_fields(data: Any) -> Any:
     """Recursively make model_dump() output safe for yaml.safe_load() roundtrips.
 
-    Converts SecretStr to plaintext and Enum to its value so the result
-    contains only basic Python types (str, int, dict, list, etc.).
+    Converts SecretStr to plaintext, Enum to its value, and Path-like
+    objects to strings so the result contains only basic Python types.
     """
     if isinstance(data, dict):
         return {k: reveal_secret_fields(v) for k, v in data.items()}
@@ -24,7 +27,11 @@ def reveal_secret_fields(data: Any) -> Any:
         return data.get_secret_value()
     if isinstance(data, Enum):
         return data.value
-    return data
+    if isinstance(data, _YAML_SAFE_SCALARS):
+        return data
+    if isinstance(data, PurePath):
+        return str(data)
+    return str(data)
 
 
 def redact_sensitive_fields(data: dict[str, Any]) -> dict[str, Any]:
