@@ -6,6 +6,19 @@
 
 from typing import Any
 
+from pydantic import SecretStr
+
+
+def reveal_secret_fields(data: Any) -> Any:
+    """Recursively replace SecretStr values with their plaintext for serialization."""
+    if isinstance(data, dict):
+        return {k: reveal_secret_fields(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [reveal_secret_fields(v) for v in data]
+    if isinstance(data, SecretStr):
+        return data.get_secret_value()
+    return data
+
 
 def redact_sensitive_fields(data: dict[str, Any]) -> dict[str, Any]:
     """Redact sensitive information from config before printing."""

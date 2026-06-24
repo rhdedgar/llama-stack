@@ -23,7 +23,7 @@ from ogx.core.distribution import builtin_automatically_routed_apis, get_provide
 from ogx.core.resolver import validate_and_prepare_providers
 from ogx.core.server.server import remove_disabled_providers
 from ogx.core.stack import run_config_from_dynamic_config_spec
-from ogx.core.utils.config import redact_sensitive_fields
+from ogx.core.utils.config import redact_sensitive_fields, reveal_secret_fields
 from ogx.core.utils.config_dirs import DISTRIBS_BASE_DIR, UI_LOGS_DIR
 from ogx.core.utils.config_resolution import resolve_config_or_distro
 from ogx.log import get_logger
@@ -167,7 +167,7 @@ def _uvicorn_run(config_file: Path | None, args: argparse.Namespace, parser: arg
 
     # Write resolved config (with CLI overrides) to a temp file so
     # create_app() workers read the final config directly from disk.
-    resolved_config = config.model_dump(mode="json")
+    resolved_config = reveal_secret_fields(config.model_dump())
     fd, resolved_path = tempfile.mkstemp(suffix=".yaml", prefix="ogx-run-")
     resolved_file = Path(resolved_path)
     atexit.register(lambda p=resolved_file: p.unlink(missing_ok=True))
