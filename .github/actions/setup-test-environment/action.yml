@@ -86,6 +86,7 @@ runs:
           -e POSTGRES_USER=ogx \
           -e POSTGRES_PASSWORD=ogx \
           -e POSTGRES_DB=ogx \
+          -e POSTGRES_HOST_AUTH_METHOD=scram-sha-256 \
           -p 5432:5432 \
           postgres:16
 
