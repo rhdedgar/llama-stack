@@ -4,19 +4,26 @@
 # This source code is licensed under the terms described in the LICENSE file in
 # the root directory of this source tree.
 
+from enum import Enum
 from typing import Any
 
 from pydantic import SecretStr
 
 
 def reveal_secret_fields(data: Any) -> Any:
-    """Recursively replace SecretStr values with their plaintext for serialization."""
+    """Recursively make model_dump() output safe for yaml.safe_load() roundtrips.
+
+    Converts SecretStr to plaintext and Enum to its value so the result
+    contains only basic Python types (str, int, dict, list, etc.).
+    """
     if isinstance(data, dict):
         return {k: reveal_secret_fields(v) for k, v in data.items()}
     if isinstance(data, list):
         return [reveal_secret_fields(v) for v in data]
     if isinstance(data, SecretStr):
         return data.get_secret_value()
+    if isinstance(data, Enum):
+        return data.value
     return data
 
 
