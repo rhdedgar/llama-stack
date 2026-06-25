@@ -25,3 +25,23 @@ class ServerTLSConfig(BaseModel):
         default=None,
         description="Allowed TLS 1.2 cipher suites (OpenSSL names). Defaults to FIPS-approved AES-GCM ciphers.",
     )
+
+
+def validate_fips_tls(
+    insecure: bool,
+    tls_certfile: str | None,
+    tls_keyfile: str | None,
+    tls_config: ServerTLSConfig | None,
+) -> ServerTLSConfig | None:
+    """Apply FIPS cipher defaults and validate cipher suites when TLS is configured."""
+    if insecure or not (tls_certfile and tls_keyfile):
+        return tls_config
+    if tls_config is None:
+        return ServerTLSConfig(ciphers=FIPS_APPROVED_CIPHERS)
+    if tls_config.ciphers is None:
+        tls_config.ciphers = FIPS_APPROVED_CIPHERS
+    elif not tls_config.ciphers:
+        raise ValueError("At least one cipher suite must be specified.")
+    elif invalid := set(tls_config.ciphers) - set(FIPS_APPROVED_CIPHERS):
+        raise ValueError(f"FIPS-approved ciphers required. Invalid: {sorted(invalid)}")
+    return tls_config
