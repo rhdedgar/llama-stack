@@ -10,12 +10,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from ogx.core.datatypes import (
-    FIPS_APPROVED_CIPHERS,
-    ServerConfig,
-    ServerTLSConfig,
-    StackConfig,
-)
+from ogx.core.datatypes import ServerConfig, StackConfig
+from ogx.core.server_tls import FIPS_APPROVED_CIPHERS, ServerTLSConfig
 
 
 class TestTLSValidation:
